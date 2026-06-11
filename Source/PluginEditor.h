@@ -17,7 +17,7 @@
 class DvisualizerAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
-    DvisualizerAudioProcessorEditor (DvisualizerAudioProcessor&);
+    explicit DvisualizerAudioProcessorEditor (DvisualizerAudioProcessor&);
     ~DvisualizerAudioProcessorEditor() override;
 
     //==============================================================================
@@ -28,6 +28,6 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     DvisualizerAudioProcessor& audioProcessor;
-
+    juce::Label titleLabel;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DvisualizerAudioProcessorEditor)
 };

@@ -4,6 +4,10 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="DZjyK2" name="dvisualizer">
     <GROUP id="{F1CCF86C-DAC5-D1F2-5FDD-959840101A1A}" name="Source">
+      <FILE id="JozECc" name="SpectrumAnalyzerComponent.cpp" compile="1"
+            resource="0" file="Source/SpectrumAnalyzerComponent.cpp"/>
+      <FILE id="VF1NOl" name="SpectrumAnalyzerComponent.h" compile="0" resource="0"
+            file="Source/SpectrumAnalyzerComponent.h"/>
       <FILE id="jYXqQX" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="JEtzwR" name="PluginProcessor.h" compile="0" resource="0"
@@ -25,6 +29,7 @@
     <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
@@ -51,6 +56,7 @@
         <MODULEPATH id="juce_graphics" path="C:/JUCE/modules"/>
         <MODULEPATH id="juce_gui_basics" path="C:/JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="C:/JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="C:/JUCE/modules"/>
       </MODULEPATHS>
     </VS2022>
   </EXPORTFORMATS>

@@ -1,68 +1,223 @@
-﻿/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin editor.
-
-  ==============================================================================
-*/
-
-#include "PluginProcessor.h"
+﻿#include "PluginProcessor.h"
 #include "PluginEditor.h"
 
 //==============================================================================
-DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor (DvisualizerAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+// Colour palettes
+// Index ordering MUST match the AudioParameterChoice StringArrays in the processor.
+//==============================================================================
+juce::Colour DvisualizerAudioProcessorEditor::getBgColour(int index)
 {
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
-    setSize (640, 480);
+    static const juce::Colour palette[]
+    {
+        juce::Colour(0xff0d0d1a),   // 0 — Dark Navy  (default)
+        juce::Colour(0xff000000),   // 1 — Pitch Black
+        juce::Colour(0xff081a08),   // 2 — Deep Forest
+        juce::Colour(0xff1a0808),   // 3 — Dark Crimson
+        juce::Colour(0xff141414),   // 4 — Slate
+    };
+    return palette[juce::jlimit(0, 4, index)];
+}
 
-    // ── Title label ───────────────────────────────────────────────────────
-    titleLabel.setText("Waveform Viewer", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font(juce::FontOptions().withHeight(18.0f)
-        .withStyle("Bold")));
-    titleLabel.setJustificationType(juce::Justification::centred);
+juce::Colour DvisualizerAudioProcessorEditor::getPrimaryColour(int index)
+{
+    static const juce::Colour palette[]
+    {
+        juce::Colour(0xff00d4ff),   // 0 — Cyan    (default)
+        juce::Colour(0xff39ff14),   // 1 — Lime
+        juce::Colour(0xffff7700),   // 2 — Orange
+        juce::Colour(0xffff0099),   // 3 — Pink
+        juce::Colour(0xffffffff),   // 4 — White
+        juce::Colour(0xffffd700),   // 5 — Gold
+    };
+    return palette[juce::jlimit(0, 5, index)];
+}
+
+//==============================================================================
+DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
+    DvisualizerAudioProcessor& p)
+    : AudioProcessorEditor(&p),
+    audioProcessor(p),
+    spectrumAnalyzer(p)
+{
+    setSize(640, 480);
+
+    // ── Shared styling lambdas ────────────────────────────────────────────
+    auto styleLabel = [](juce::Label& lb, const juce::String& text)
+        {
+            lb.setText(text, juce::dontSendNotification);
+            lb.setFont(juce::Font(juce::FontOptions().withHeight(11.0f)));
+            lb.setColour(juce::Label::textColourId, juce::Colour(0xff8888aa));
+            lb.setJustificationType(juce::Justification::centredLeft);
+        };
+
+    auto styleComboBox = [](juce::ComboBox& cb)
+        {
+            cb.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff1e1e2e));
+            cb.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff3a3a5a));
+            cb.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+            cb.setColour(juce::ComboBox::arrowColourId, juce::Colour(0xff00d4ff));
+        };
+
+    // ── Title ─────────────────────────────────────────────────────────────
+    titleLabel.setText("dvisualizer", juce::dontSendNotification);
+    titleLabel.setFont(juce::Font(juce::FontOptions().withHeight(20.0f).withStyle("Bold")));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    titleLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(titleLabel);
 
-    // ── Visualiser ────────────────────────────────────────────────────────
-    // The visualiser component lives inside the processor (processor lifetime
-    // > editor lifetime), so we just make it visible here.
-    // We customise a few colours to give it a clean oscilloscope look.
-    audioProcessor.visualiser.setColours(
-        juce::Colour(0xff1a1a2e),   // dark background
-        juce::Colour(0xff00d4ff));  // bright cyan waveform trace
+    // ── Mode control ──────────────────────────────────────────────────────
+    styleLabel(modeLabel, "MODE");
+    addAndMakeVisible(modeLabel);
 
+    // Item list must match the AudioParameterChoice StringArray in the processor
+    modeComboBox.addItemList({ "Waveform", "Spectrum" }, 1);
+    styleComboBox(modeComboBox);
+    addAndMakeVisible(modeComboBox);
+
+    // ── Background color control ───────────────────────────────────────────
+    styleLabel(bgColorLabel, "BACKGROUND");
+    addAndMakeVisible(bgColorLabel);
+
+    bgColorComboBox.addItemList(
+        { "Dark Navy", "Pitch Black", "Deep Forest", "Dark Crimson", "Slate" }, 1);
+    styleComboBox(bgColorComboBox);
+    addAndMakeVisible(bgColorComboBox);
+
+    // ── Primary color control ─────────────────────────────────────────────
+    styleLabel(primaryColorLabel, "PRIMARY COLOR");
+    addAndMakeVisible(primaryColorLabel);
+
+    primaryColorComboBox.addItemList(
+        { "Cyan", "Lime", "Orange", "Pink", "White", "Gold" }, 1);
+    styleComboBox(primaryColorComboBox);
+    addAndMakeVisible(primaryColorComboBox);
+
+    // ── APVTS attachments ─────────────────────────────────────────────────
+    // ComboBoxAttachment handles full two-way sync:
+    //   user → ComboBox → APVTS → host
+    //   host → APVTS → ComboBox (via AsyncUpdater on the message thread)
+    modeAttachment = std::make_unique<ComboAttachment>(
+        audioProcessor.apvts, "vizMode", modeComboBox);
+    bgColorAttachment = std::make_unique<ComboAttachment>(
+        audioProcessor.apvts, "bgColor", bgColorComboBox);
+    primaryColorAttachment = std::make_unique<ComboAttachment>(
+        audioProcessor.apvts, "primaryColor", primaryColorComboBox);
+
+    // ── Visualization components ──────────────────────────────────────────
     addAndMakeVisible(audioProcessor.visualiser);
+    addAndMakeVisible(spectrumAnalyzer);
+
+    // ── Parameter polling timer ───────────────────────────────────────────
+    // Runs on the message thread; polls atomic parameter values and refreshes
+    // the UI whenever they change.  Handles user input, host automation, and
+    // preset recall with a single, simple code path.
+    startTimerHz(30);
+
+    // Force an immediate update so the UI matches the loaded state on open
+    timerCallback();
 }
 
 DvisualizerAudioProcessorEditor::~DvisualizerAudioProcessorEditor()
 {
-    // The visualiser belongs to the processor, NOT the editor.
-// We must remove it from the editor's component hierarchy before the
-// editor is destroyed; otherwise JUCE will try to delete a component
-// it doesn't own and trigger an assertion.
+    stopTimer();
+
+    // The visualiser is owned by the processor, not the editor.
+    // Remove it from our component hierarchy before JUCE tears down the editor;
+    // otherwise JUCE will assert trying to manage a component it doesn't own.
     audioProcessor.visualiser.setVisible(false);
     removeChildComponent(&audioProcessor.visualiser);
 }
 
 //==============================================================================
-void DvisualizerAudioProcessorEditor::paint (juce::Graphics& g)
+void DvisualizerAudioProcessorEditor::timerCallback()
 {
-    // Fill the background with a deep dark colour.
-    g.fillAll(juce::Colour(0xff0d0d1a));
+    const int mode = static_cast<int> (*audioProcessor.vizModeParam);
+    const int bg = static_cast<int> (*audioProcessor.bgColorParam);
+    const int primary = static_cast<int> (*audioProcessor.primaryColorParam);
+
+    // Only update when something has actually changed — avoids unnecessary
+    // repaints on every timer tick when nothing is being adjusted.
+    if (mode != lastKnownMode ||
+        bg != lastKnownBg ||
+        primary != lastKnownPrimary)
+    {
+        lastKnownMode = mode;
+        lastKnownBg = bg;
+        lastKnownPrimary = primary;
+        updateVisibleMode();
+        updateColours();
+    }
+}
+
+//==============================================================================
+void DvisualizerAudioProcessorEditor::updateVisibleMode()
+{
+    const bool isWaveform = (static_cast<int> (*audioProcessor.vizModeParam) == 0);
+
+    audioProcessor.visualiser.setVisible(isWaveform);
+    spectrumAnalyzer.setVisible(!isWaveform);
+}
+
+void DvisualizerAudioProcessorEditor::updateColours()
+{
+    const juce::Colour bg = getBgColour(static_cast<int> (*audioProcessor.bgColorParam));
+    const juce::Colour primary = getPrimaryColour(static_cast<int> (*audioProcessor.primaryColorParam));
+
+    currentBgColour = bg;
+
+    // Push colours into both visualizers so they're ready on instant mode switch
+    audioProcessor.visualiser.setColours(bg, primary);
+    spectrumAnalyzer.setColours(bg, primary);
+
+    // Tint the ComboBox arrows to match the current primary colour
+    for (auto* cb : { &modeComboBox, &bgColorComboBox, &primaryColorComboBox })
+        cb->setColour(juce::ComboBox::arrowColourId, primary);
+
+    repaint();
+}
+
+//==============================================================================
+void DvisualizerAudioProcessorEditor::paint(juce::Graphics& g)
+{
+    // Fill the entire window (including the control strip) with the chosen
+    // background colour so the UI looks seamlessly themed.
+    g.fillAll(currentBgColour);
+
+    // Subtle separator line between the control strip and the visualization area
+    const float sepY = static_cast<float> (getHeight() - getHeight() + 94);
+    g.setColour(juce::Colours::white.withAlpha(0.06f));
+    g.drawHorizontalLine(94, 10.0f, static_cast<float> (getWidth() - 10));
 }
 
 void DvisualizerAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced(8); // 8 px margin on all sides
+    auto bounds = getLocalBounds().reduced(10);
 
-    // Reserve 30 px at the top for the title label.
-    titleLabel.setBounds(bounds.removeFromTop(30));
+    // ── Title (28 px) ─────────────────────────────────────────────────────
+    titleLabel.setBounds(bounds.removeFromTop(28));
+    bounds.removeFromTop(6);
 
-    // Leave a small gap between title and waveform.
-    bounds.removeFromTop(4);
+    // ── Control strip (52 px: 18 label + 4 gap + 28 combobox + 2 padding) ─
+    auto controlsRow = bounds.removeFromTop(52);
+    bounds.removeFromTop(10);   // gap before visualization area
 
-    // The remainder of the area is given to the visualiser.
+    const int colWidth = controlsRow.getWidth() / 3;
+
+    // Helper to lay out one label+combobox column
+    auto layoutControl = [&](juce::Label& label, juce::ComboBox& cb)
+        {
+            auto area = controlsRow.removeFromLeft(colWidth).reduced(4, 0);
+            label.setBounds(area.removeFromTop(18));
+            area.removeFromTop(3);
+            cb.setBounds(area.removeFromTop(28));
+        };
+
+    layoutControl(modeLabel, modeComboBox);
+    layoutControl(bgColorLabel, bgColorComboBox);
+    layoutControl(primaryColorLabel, primaryColorComboBox);
+
+    // ── Visualization area ────────────────────────────────────────────────
+    // Both components occupy the same rectangle; only the active one is visible.
     audioProcessor.visualiser.setBounds(bounds);
+    spectrumAnalyzer.setBounds(bounds);
 }

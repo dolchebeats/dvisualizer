@@ -39,13 +39,13 @@ DvisualizerAudioProcessor::DvisualizerAudioProcessor()
     : AudioProcessor(BusesProperties()
         .withInput("Input", juce::AudioChannelSet::stereo(), true)
         .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-    visualiser(2),
+    waveform(2),
     apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
     // Waveform visualiser defaults
-    visualiser.setNumChannels(2);
-    visualiser.setRepaintRate(60);
-    visualiser.setSamplesPerBlock(32);
+    waveform.setNumChannels(2);
+    waveform.setRepaintRate(60);
+    waveform.setSamplesPerBlock(32);
 
     // Pre-allocate the FFT FIFO buffer here in the constructor.
     // It is NEVER resized after this point, so processBlock stays allocation-free.
@@ -64,8 +64,8 @@ void DvisualizerAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPe
 {
     currentSampleRate = sampleRate;
 
-    visualiser.setNumChannels(getTotalNumInputChannels());
-    visualiser.clear();
+    waveform.setNumChannels(getTotalNumInputChannels());
+    waveform.clear();
 
     // Reset FIFO read/write indices — no reallocation, just zero the counters.
     fftFifo.reset();
@@ -74,7 +74,7 @@ void DvisualizerAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPe
 
 void DvisualizerAudioProcessor::releaseResources()
 {
-    visualiser.clear();
+    waveform.clear();
 }
 
 //==============================================================================
@@ -90,7 +90,7 @@ void DvisualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     // ── Waveform FIFO (always feed, regardless of current mode) ───────────
     // Feeding both FIFOs at all times means mode switching is instant with
     // no warm-up period on either visualizer.
-    visualiser.pushBuffer(buffer);
+    waveform.pushBuffer(buffer);
 
     // ── FFT FIFO (mono-mix from channel 0) ────────────────────────────────
     // AbstractFifo::prepareToWrite / finishedWrite is the JUCE-documented

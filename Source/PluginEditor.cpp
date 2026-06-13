@@ -104,7 +104,7 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
         audioProcessor.apvts, "primaryColor", primaryColorComboBox);
 
     // ── Visualization components ──────────────────────────────────────────
-    addAndMakeVisible(audioProcessor.visualiser);
+    addAndMakeVisible(audioProcessor.waveform);
     addAndMakeVisible(spectrumAnalyzer);
 
     // ── Parameter polling timer ───────────────────────────────────────────
@@ -124,8 +124,8 @@ DvisualizerAudioProcessorEditor::~DvisualizerAudioProcessorEditor()
     // The visualiser is owned by the processor, not the editor.
     // Remove it from our component hierarchy before JUCE tears down the editor;
     // otherwise JUCE will assert trying to manage a component it doesn't own.
-    audioProcessor.visualiser.setVisible(false);
-    removeChildComponent(&audioProcessor.visualiser);
+    audioProcessor.waveform.setVisible(false);
+    removeChildComponent(&audioProcessor.waveform);
 }
 
 //==============================================================================
@@ -154,7 +154,7 @@ void DvisualizerAudioProcessorEditor::updateVisibleMode()
 {
     const bool isWaveform = (static_cast<int> (*audioProcessor.vizModeParam) == 0);
 
-    audioProcessor.visualiser.setVisible(isWaveform);
+    audioProcessor.waveform.setVisible(isWaveform);
     spectrumAnalyzer.setVisible(!isWaveform);
 }
 
@@ -166,7 +166,7 @@ void DvisualizerAudioProcessorEditor::updateColours()
     currentBgColour = bg;
 
     // Push colours into both visualizers so they're ready on instant mode switch
-    audioProcessor.visualiser.setColours(bg, primary);
+    audioProcessor.waveform.setColours(bg, primary);
     spectrumAnalyzer.setColours(bg, primary);
 
     // Tint the ComboBox arrows to match the current primary colour
@@ -218,6 +218,6 @@ void DvisualizerAudioProcessorEditor::resized()
 
     // ── Visualization area ────────────────────────────────────────────────
     // Both components occupy the same rectangle; only the active one is visible.
-    audioProcessor.visualiser.setBounds(bounds);
+    audioProcessor.waveform.setBounds(bounds);
     spectrumAnalyzer.setBounds(bounds);
 }

@@ -17,9 +17,6 @@ SpectrumAnalyzerComponent::SpectrumAnalyzerComponent(DvisualizerAudioProcessor& 
 
 SpectrumAnalyzerComponent::~SpectrumAnalyzerComponent()
 {
-    // Stop the timer before any members are destroyed.
-    // Since the timer fires on the message thread and the destructor also
-    // runs on the message thread, stopTimer() guarantees no further callbacks.
     stopTimer();
 }
 
@@ -123,6 +120,81 @@ void SpectrumAnalyzerComponent::drawNextFrameOfSpectrum()
 }
 
 //==============================================================================
+/**
+ * Builds a smooth cubic-spline path through the scope points.
+ *
+ * Strategy: Catmull-Rom cubic segments.
+ * For each interior point P[i], the control points of the cubic Bézier that
+ * connects P[i-1] → P[i] → P[i+1] → P[i+2] are derived from the neighbouring
+ * positions.  The tangent at each knot is the chord between its two neighbours
+ * scaled by a tension factor τ (0 = flat, 1 = full Catmull-Rom).
+ *
+ * Only a cubic bezier path call is needed here since JUCE's Path::cubicTo()
+ * takes two control points and an end point, mapping perfectly to Catmull-Rom.
+ *
+ * We sample the smoothedScopeData at a reduced stride (every `step` columns)
+ * to lower the number of Bézier segments while still capturing the true shape.
+ * At 512 scope points × 640 px, every 4th point is already sub-pixel accurate.
+ */
+static juce::Path buildCatmullRomPath(
+    const std::array<float, 512>& data,
+    int                            scopeSize,
+    float                          w,
+    float                          h,
+    int                            step = 4)        // downsample stride
+{
+    // ── Tension ───────────────────────────────────────────────────────────
+    // 0.5 is the classic Catmull-Rom value; lower values give a tighter curve.
+    static constexpr float tau = 0.5f;
+
+    // Helper: map scope index → pixel (x, y)
+    auto xOf = [&](int i) -> float
+        {
+            return juce::jmap(static_cast<float>(i),
+                0.0f, static_cast<float>(scopeSize - 1), 0.0f, w);
+        };
+    auto yOf = [&](int i) -> float
+        {
+            return juce::jmap(data[juce::jlimit(0, scopeSize - 1, i)],
+                0.0f, 1.0f, h, 0.0f);
+        };
+
+    juce::Path path;
+    path.startNewSubPath(xOf(0), yOf(0));
+
+    // Walk through knots at the chosen stride.
+    // Each iteration emits one cubic segment from knot k1 → k2,
+    // using k0 (before) and k3 (after) to compute tangents.
+    for (int k = step; k < scopeSize - 1; k += step)
+    {
+        const int i0 = k - step;          // previous knot
+        const int i1 = k;                 // current knot  (segment start)
+        const int i2 = juce::jmin(k + step, scopeSize - 1); // next knot (segment end)
+        const int i3 = juce::jmin(k + step + step, scopeSize - 1); // knot after next
+
+        // Pixel coordinates of the four surrounding knots
+        const float x0 = xOf(i0), y0 = yOf(i0);
+        const float x1 = xOf(i1), y1 = yOf(i1);
+        const float x2 = xOf(i2), y2 = yOf(i2);
+        const float x3 = xOf(i3), y3 = yOf(i3);
+
+        // Catmull-Rom tangents at P1 and P2
+        // Tangent at P[i] = τ * (P[i+1] - P[i-1])
+        const float tx1 = tau * (x2 - x0);   const float ty1 = tau * (y2 - y0);
+        const float tx2 = tau * (x3 - x1);   const float ty2 = tau * (y3 - y1);
+
+        // Convert to Bézier control points
+        // cp1 = P1 + tangent1/3,  cp2 = P2 - tangent2/3
+        const float cp1x = x1 + tx1 / 3.0f;  const float cp1y = y1 + ty1 / 3.0f;
+        const float cp2x = x2 - tx2 / 3.0f;  const float cp2y = y2 - ty2 / 3.0f;
+
+        path.cubicTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+    }
+
+    return path;
+}
+
+//==============================================================================
 void SpectrumAnalyzerComponent::paint(juce::Graphics& g)
 {
     const float w = static_cast<float> (getWidth());
@@ -158,37 +230,15 @@ void SpectrumAnalyzerComponent::paint(juce::Graphics& g)
         }
     }
 
-    // ── Spectrum path ───────────────────────────────────────────────────────
-    juce::Path spectrumPath;
-    spectrumPath.preallocateSpace(scopeSize + 4);
+    // ── Smooth spectrum line ────────────────────────────────────────────────
+    // Build the Catmull-Rom spline through the smoothed scope data.
+    // stride=4 → ~128 cubic segments across 640 px, well below pixel resolution.
+    juce::Path linePath = buildCatmullRomPath(smoothedScopeData, scopeSize, w, h, 8);
 
-    // Anchor the filled shape at the bottom-left corner
-    spectrumPath.startNewSubPath(0.0f, h);
-
-    for (int i = 0; i < scopeSize; ++i)
-    {
-        const float x = juce::jmap(static_cast<float>(i),
-            0.0f, static_cast<float>(scopeSize - 1),
-            0.0f, w);
-        // smoothedScopeData is 0 = silence (bottom) … 1 = full scale (top)
-        const float y = juce::jmap(smoothedScopeData[i],
-            0.0f, 1.0f,
-            h, 0.0f);   // inverted: Y=0 is top of component
-        spectrumPath.lineTo(x, y);
-    }
-
-    // Close path along the bottom edge to create a fillable shape
-    spectrumPath.lineTo(w, h);
-    spectrumPath.closeSubPath();
-
-    // Vertical gradient: opaque primary at the top, transparent at the bottom
-    juce::ColourGradient gradient(primaryColour.withAlpha(0.85f), 0.0f, 0.0f,
-        primaryColour.withAlpha(0.08f), 0.0f, h,
-        false /* not radial */);
-    g.setGradientFill(gradient);
-    g.fillPath(spectrumPath);
-
-    // Bright outline trace along the top edge of the spectrum
+    // Draw only the stroke — no fill, so the background colour shows through.
     g.setColour(primaryColour.brighter(0.35f));
-    g.strokePath(spectrumPath, juce::PathStrokeType(1.5f));
+    g.strokePath(linePath, juce::PathStrokeType(
+        1.5f,
+        juce::PathStrokeType::curved,      // smooth join style
+        juce::PathStrokeType::rounded));   // rounded end caps
 }

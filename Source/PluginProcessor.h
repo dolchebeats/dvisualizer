@@ -54,7 +54,7 @@ public:
     //==========================================================================
     // Waveform visualiser
     // Owned here so it survives editor open/close cycles.
-    juce::AudioVisualiserComponent visualiser;
+    juce::AudioVisualiserComponent waveform;
 
     //==========================================================================
     // FFT sample FIFO

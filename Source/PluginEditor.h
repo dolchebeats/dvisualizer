@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "SpectrumAnalyzerComponent.h"
+#include "AlchemyComponent.h"
 
 //==============================================================================
 /**
@@ -10,13 +11,12 @@
  * Owns:
  *   - Three ComboBox controls (mode, background color, primary color)
  *   - APVTS attachments that keep the controls in sync with the processor
- *   - A SpectrumAnalyzerComponent (editor-lifetime; spectrum data lives in processor)
+ *   - A SpectrumAnalyzerComponent  (editor-lifetime)
+ *   - An AlchemyComponent          (editor-lifetime)  ← Step 8
  *   - A reference to the processor's AudioVisualiserComponent (processor-lifetime)
  *
  * A juce::Timer at 30 Hz polls the three atomic parameter values and updates
- * the visible visualization component + colours whenever they change.  This
- * approach handles all change sources uniformly: user drag, host automation,
- * and preset recall — with no thread-marshalling complexity.
+ * the visible visualization component + colours whenever they change.
  */
 class DvisualizerAudioProcessorEditor : public juce::AudioProcessorEditor,
     private juce::Timer
@@ -41,31 +41,29 @@ private:
     //==========================================================================
     DvisualizerAudioProcessor& audioProcessor;
 
-    // ── Control strip ────────────────────────────────────────────────────
-    juce::Label titleLabel;
-    juce::Label modeLabel, bgColorLabel, primaryColorLabel;
-
+    // ── Control strip ─────────────────────────────────────────────────────
+    juce::Label    titleLabel;
+    juce::Label    modeLabel, bgColorLabel, primaryColorLabel;
     juce::ComboBox modeComboBox;
     juce::ComboBox bgColorComboBox;
     juce::ComboBox primaryColorComboBox;
 
-    // Attachments keep ComboBox ↔ APVTS in sync (two-way, including host automation)
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     std::unique_ptr<ComboAttachment> modeAttachment;
     std::unique_ptr<ComboAttachment> bgColorAttachment;
     std::unique_ptr<ComboAttachment> primaryColorAttachment;
 
-    // ── Visualization components ──────────────────────────────────────────
-    // spectrumAnalyzer is owned by this editor.
-    // audioProcessor.visualiser is owned by the processor (shared reference).
+    // ── Visualization components ───────────────────────────────────────────
+    // waveform       — owned by the processor (survives editor close)
+    // spectrumAnalyzer, alchemyViz — owned by this editor
     SpectrumAnalyzerComponent spectrumAnalyzer;
+    AlchemyComponent          alchemyViz;       // Step 8
 
-    // ── State tracking for timer-based polling ────────────────────────────
+    // ── State tracking ────────────────────────────────────────────────────
     int lastKnownMode{ -1 };
     int lastKnownBg{ -1 };
     int lastKnownPrimary{ -1 };
 
-    // Background colour used in paint() — updated by updateColours()
     juce::Colour currentBgColour{ 0xff0d0d1a };
 
     //==========================================================================

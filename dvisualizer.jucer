@@ -10,6 +10,10 @@
             file="Source/SpectrumAnalyzerComponent.h"/>
       <FILE id="jYXqQX" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
+      <FILE id="ohE2RR" name="AlchemyComponent.cpp" compile="1" resource="0"
+            file="Source/AlchemyComponent.cpp"/>
+      <FILE id="PJOg9e" name="AlchemyComponent.h" compile="0" resource="0"
+            file="Source/AlchemyComponent.h"/>
       <FILE id="JEtzwR" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
       <FILE id="YsiJbs" name="PluginEditor.cpp" compile="1" resource="0"

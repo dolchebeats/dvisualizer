@@ -37,11 +37,12 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     DvisualizerAudioProcessor& p)
     : AudioProcessorEditor(&p),
     audioProcessor(p),
-    spectrumAnalyzer(p)
+    spectrumAnalyzer(p),
+    alchemyViz(p)          // Step 8 — construct with processor reference
 {
     setSize(640, 480);
 
-    // ── Shared styling lambdas ────────────────────────────────────────────
+    // ── Shared styling lambdas ─────────────────────────────────────────────
     auto styleLabel = [](juce::Label& lb, const juce::String& text)
         {
             lb.setText(text, juce::dontSendNotification);
@@ -58,19 +59,20 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
             cb.setColour(juce::ComboBox::arrowColourId, juce::Colour(0xff00d4ff));
         };
 
-    // ── Title ─────────────────────────────────────────────────────────────
+    // ── Title ──────────────────────────────────────────────────────────────
     titleLabel.setText("dvisualizer", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font(juce::FontOptions().withHeight(20.0f).withStyle("Bold")));
+    titleLabel.setFont(juce::Font(juce::FontOptions()
+        .withHeight(20.0f).withStyle("Bold")));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     titleLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(titleLabel);
 
-    // ── Mode control ──────────────────────────────────────────────────────
+    // ── Mode control ───────────────────────────────────────────────────────
     styleLabel(modeLabel, "MODE");
     addAndMakeVisible(modeLabel);
 
-    // Item list must match the AudioParameterChoice StringArray in the processor
-    modeComboBox.addItemList({ "Waveform", "Spectrum" }, 1);
+    // "Alchemy" is index 2 — must match createParameterLayout()
+    modeComboBox.addItemList({ "Waveform", "Spectrum", "Alchemy" }, 1);
     styleComboBox(modeComboBox);
     addAndMakeVisible(modeComboBox);
 
@@ -83,7 +85,7 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     styleComboBox(bgColorComboBox);
     addAndMakeVisible(bgColorComboBox);
 
-    // ── Primary color control ─────────────────────────────────────────────
+    // ── Primary color control ──────────────────────────────────────────────
     styleLabel(primaryColorLabel, "PRIMARY COLOR");
     addAndMakeVisible(primaryColorLabel);
 
@@ -92,10 +94,7 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     styleComboBox(primaryColorComboBox);
     addAndMakeVisible(primaryColorComboBox);
 
-    // ── APVTS attachments ─────────────────────────────────────────────────
-    // ComboBoxAttachment handles full two-way sync:
-    //   user → ComboBox → APVTS → host
-    //   host → APVTS → ComboBox (via AsyncUpdater on the message thread)
+    // ── APVTS attachments ──────────────────────────────────────────────────
     modeAttachment = std::make_unique<ComboAttachment>(
         audioProcessor.apvts, "vizMode", modeComboBox);
     bgColorAttachment = std::make_unique<ComboAttachment>(
@@ -103,27 +102,22 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     primaryColorAttachment = std::make_unique<ComboAttachment>(
         audioProcessor.apvts, "primaryColor", primaryColorComboBox);
 
-    // ── Visualization components ──────────────────────────────────────────
+    // ── Visualization components ───────────────────────────────────────────
     addAndMakeVisible(audioProcessor.waveform);
     addAndMakeVisible(spectrumAnalyzer);
+    addAndMakeVisible(alchemyViz);          // Step 8
 
-    // ── Parameter polling timer ───────────────────────────────────────────
-    // Runs on the message thread; polls atomic parameter values and refreshes
-    // the UI whenever they change.  Handles user input, host automation, and
-    // preset recall with a single, simple code path.
+    // ── Parameter polling timer ────────────────────────────────────────────
     startTimerHz(30);
-
-    // Force an immediate update so the UI matches the loaded state on open
-    timerCallback();
+    timerCallback();   // force immediate sync on open
 }
 
 DvisualizerAudioProcessorEditor::~DvisualizerAudioProcessorEditor()
 {
     stopTimer();
 
-    // The visualiser is owned by the processor, not the editor.
-    // Remove it from our component hierarchy before JUCE tears down the editor;
-    // otherwise JUCE will assert trying to manage a component it doesn't own.
+    // The waveform is owned by the processor — remove it from our hierarchy
+    // before JUCE tears down the editor to avoid an ownership assertion.
     audioProcessor.waveform.setVisible(false);
     removeChildComponent(&audioProcessor.waveform);
 }
@@ -131,12 +125,10 @@ DvisualizerAudioProcessorEditor::~DvisualizerAudioProcessorEditor()
 //==============================================================================
 void DvisualizerAudioProcessorEditor::timerCallback()
 {
-    const int mode = static_cast<int> (*audioProcessor.vizModeParam);
-    const int bg = static_cast<int> (*audioProcessor.bgColorParam);
-    const int primary = static_cast<int> (*audioProcessor.primaryColorParam);
+    const int mode = static_cast<int>(*audioProcessor.vizModeParam);
+    const int bg = static_cast<int>(*audioProcessor.bgColorParam);
+    const int primary = static_cast<int>(*audioProcessor.primaryColorParam);
 
-    // Only update when something has actually changed — avoids unnecessary
-    // repaints on every timer tick when nothing is being adjusted.
     if (mode != lastKnownMode ||
         bg != lastKnownBg ||
         primary != lastKnownPrimary)
@@ -152,24 +144,28 @@ void DvisualizerAudioProcessorEditor::timerCallback()
 //==============================================================================
 void DvisualizerAudioProcessorEditor::updateVisibleMode()
 {
-    const bool isWaveform = (static_cast<int> (*audioProcessor.vizModeParam) == 0);
+    const int mode = static_cast<int>(*audioProcessor.vizModeParam);
 
-    audioProcessor.waveform.setVisible(isWaveform);
-    spectrumAnalyzer.setVisible(!isWaveform);
+    // Exactly one component is visible at a time; others are hidden but
+    // still receive their timer callbacks so they warm up instantly on switch.
+    audioProcessor.waveform.setVisible(mode == 0);
+    spectrumAnalyzer.setVisible(mode == 1);
+    alchemyViz.setVisible(mode == 2);  // Step 8
 }
 
 void DvisualizerAudioProcessorEditor::updateColours()
 {
-    const juce::Colour bg = getBgColour(static_cast<int> (*audioProcessor.bgColorParam));
-    const juce::Colour primary = getPrimaryColour(static_cast<int> (*audioProcessor.primaryColorParam));
+    const juce::Colour bg = getBgColour(static_cast<int>(*audioProcessor.bgColorParam));
+    const juce::Colour primary = getPrimaryColour(static_cast<int>(*audioProcessor.primaryColorParam));
 
     currentBgColour = bg;
 
-    // Push colours into both visualizers so they're ready on instant mode switch
+    // Push colours into all three visualisers so mode switches are instant
     audioProcessor.waveform.setColours(bg, primary);
     spectrumAnalyzer.setColours(bg, primary);
+    alchemyViz.setColours(bg, primary);   // Step 8
 
-    // Tint the ComboBox arrows to match the current primary colour
+    // Tint ComboBox arrows with the current primary colour
     for (auto* cb : { &modeComboBox, &bgColorComboBox, &primaryColorComboBox })
         cb->setColour(juce::ComboBox::arrowColourId, primary);
 
@@ -179,31 +175,27 @@ void DvisualizerAudioProcessorEditor::updateColours()
 //==============================================================================
 void DvisualizerAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    // Fill the entire window (including the control strip) with the chosen
-    // background colour so the UI looks seamlessly themed.
     g.fillAll(currentBgColour);
 
     // Subtle separator line between the control strip and the visualization area
-    const float sepY = static_cast<float> (getHeight() - getHeight() + 94);
     g.setColour(juce::Colours::white.withAlpha(0.06f));
-    g.drawHorizontalLine(94, 10.0f, static_cast<float> (getWidth() - 10));
+    g.drawHorizontalLine(94, 10.0f, static_cast<float>(getWidth() - 10));
 }
 
 void DvisualizerAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(10);
 
-    // ── Title (28 px) ─────────────────────────────────────────────────────
+    // ── Title (28 px) ──────────────────────────────────────────────────────
     titleLabel.setBounds(bounds.removeFromTop(28));
     bounds.removeFromTop(6);
 
-    // ── Control strip (52 px: 18 label + 4 gap + 28 combobox + 2 padding) ─
+    // ── Control strip (52 px) ─────────────────────────────────────────────
     auto controlsRow = bounds.removeFromTop(52);
-    bounds.removeFromTop(10);   // gap before visualization area
+    bounds.removeFromTop(10);
 
     const int colWidth = controlsRow.getWidth() / 3;
 
-    // Helper to lay out one label+combobox column
     auto layoutControl = [&](juce::Label& label, juce::ComboBox& cb)
         {
             auto area = controlsRow.removeFromLeft(colWidth).reduced(4, 0);
@@ -216,8 +208,8 @@ void DvisualizerAudioProcessorEditor::resized()
     layoutControl(bgColorLabel, bgColorComboBox);
     layoutControl(primaryColorLabel, primaryColorComboBox);
 
-    // ── Visualization area ────────────────────────────────────────────────
-    // Both components occupy the same rectangle; only the active one is visible.
+    // ── Visualization area — all three share the same rectangle ───────────
     audioProcessor.waveform.setBounds(bounds);
     spectrumAnalyzer.setBounds(bounds);
+    alchemyViz.setBounds(bounds);   // Step 8
 }

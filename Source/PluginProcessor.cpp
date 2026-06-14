@@ -9,11 +9,11 @@ DvisualizerAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    // Visualization mode — "Alchemy" added as index 2
+    // Visualization mode — "Alchemy" is index 2, "Galaxy" is index 3
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{ "vizMode", 1 },
         "Visualization Mode",
-        juce::StringArray{ "Waveform", "Spectrum", "Alchemy" },
+        juce::StringArray{ "Waveform", "Spectrum", "Alchemy", "Galaxy" },
         0));
 
     layout.add(std::make_unique<juce::AudioParameterChoice>(

@@ -1,4 +1,4 @@
-﻿#include "AlchemyComponent.h"
+#include "AlchemyComponent.h"
 #include "PluginProcessor.h"
 
 //==============================================================================
@@ -116,7 +116,7 @@ void AlchemyComponent::updateFFT()
         // Smooth the radial magnitudes with a slow release
         const float newVal = juce::jmap(juce::jlimit(mindB, maxdB, dBVal),
             mindB, maxdB, 0.0f, 1.0f);
-        radialMag[i] = 0.85f * radialMag[i] + 0.15f * newVal;
+        radialMag[i] = 0.95f * radialMag[i] + 0.15f * newVal;
     }
 }
 
@@ -132,7 +132,7 @@ void AlchemyComponent::timerCallback()
     if (beat > 0.5f)
     {
         // Number of new particles scales with bass energy
-        const int count = static_cast<int>(4 + bands[1] * 20.0f);
+        const int count = static_cast<int>(8 + bands[1] * 40.0f);
         spawnBurst(count, beat);
     }
 
@@ -179,7 +179,7 @@ void AlchemyComponent::spawnBurst(int count, float energy)
         p.pos = { cx, cy };
         p.vel = { std::cos(angle) * speed, std::sin(angle) * speed };
         p.life = 0.7f + nextRand() * 0.3f;   // 0.7..1.0
-        p.size = 1.5f + nextRand() * 3.5f + energy * 3.0f;
+        p.size = 0.15f + nextRand() * 1.5f + energy * 1.0f;
         p.hueOffset = nextRand();
         p.alive = true;
         ++spawned;
@@ -404,7 +404,7 @@ void AlchemyComponent::paint(juce::Graphics& g)
         // ── Step 4: Radial spectrum ───────────────────────────────────────
         const float minDim = juce::jmin(w, h);
         const float innerRad = minDim * 0.12f;
-        const float outerRad = minDim * (0.28f + bands[1] * 0.10f);
+        const float outerRad = minDim * (1.0f + bands[1] * 1.0f);
         drawRadialSpectrum(gc, { cx, cy }, innerRad, outerRad);
 
         // ── Step 5: Lissajous rings ───────────────────────────────────────

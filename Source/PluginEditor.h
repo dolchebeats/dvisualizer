@@ -3,6 +3,7 @@
 #include "PluginProcessor.h"
 #include "SpectrumAnalyzerComponent.h"
 #include "AlchemyComponent.h"
+#include "GalaxyComponent.h"
 
 //==============================================================================
 /**
@@ -13,6 +14,7 @@
  *   - APVTS attachments that keep the controls in sync with the processor
  *   - A SpectrumAnalyzerComponent  (editor-lifetime)
  *   - An AlchemyComponent          (editor-lifetime)  ← Step 8
+ *   - A GalaxyComponent            (editor-lifetime)  ← Galaxy mode
  *   - A reference to the processor's AudioVisualiserComponent (processor-lifetime)
  *
  * A juce::Timer at 30 Hz polls the three atomic parameter values and updates
@@ -55,9 +57,10 @@ private:
 
     // ── Visualization components ───────────────────────────────────────────
     // waveform       — owned by the processor (survives editor close)
-    // spectrumAnalyzer, alchemyViz — owned by this editor
+    // spectrumAnalyzer, alchemyViz, galaxyViz — owned by this editor
     SpectrumAnalyzerComponent spectrumAnalyzer;
     AlchemyComponent          alchemyViz;       // Step 8
+    GalaxyComponent           galaxyViz;        // Galaxy mode
 
     // ── State tracking ────────────────────────────────────────────────────
     int lastKnownMode{ -1 };

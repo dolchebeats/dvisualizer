@@ -14,6 +14,10 @@
             file="Source/AlchemyComponent.cpp"/>
       <FILE id="PJOg9e" name="AlchemyComponent.h" compile="0" resource="0"
             file="Source/AlchemyComponent.h"/>
+      <FILE id="pJMLRg" name="GalaxyComponent.cpp" compile="1" resource="0"
+            file="Source/GalaxyComponent.cpp"/>
+      <FILE id="tWldq4" name="GalaxyComponent.h" compile="0" resource="0"
+            file="Source/GalaxyComponent.h"/>
       <FILE id="JEtzwR" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
       <FILE id="YsiJbs" name="PluginEditor.cpp" compile="1" resource="0"

@@ -38,7 +38,8 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     : AudioProcessorEditor(&p),
     audioProcessor(p),
     spectrumAnalyzer(p),
-    alchemyViz(p)          // Step 8 — construct with processor reference
+    alchemyViz(p),         // Step 8 — construct with processor reference
+    galaxyViz(p)           // Galaxy mode — construct with processor reference
 {
     setSize(640, 480);
 
@@ -71,8 +72,8 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     styleLabel(modeLabel, "MODE");
     addAndMakeVisible(modeLabel);
 
-    // "Alchemy" is index 2 — must match createParameterLayout()
-    modeComboBox.addItemList({ "Waveform", "Spectrum", "Alchemy" }, 1);
+    // "Alchemy" is index 2, "Galaxy" is index 3 — must match createParameterLayout()
+    modeComboBox.addItemList({ "Waveform", "Spectrum", "Alchemy", "Galaxy" }, 1);
     styleComboBox(modeComboBox);
     addAndMakeVisible(modeComboBox);
 
@@ -106,6 +107,7 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     addAndMakeVisible(audioProcessor.waveform);
     addAndMakeVisible(spectrumAnalyzer);
     addAndMakeVisible(alchemyViz);          // Step 8
+    addAndMakeVisible(galaxyViz);           // Galaxy mode
 
     // ── Parameter polling timer ────────────────────────────────────────────
     startTimerHz(30);
@@ -151,6 +153,7 @@ void DvisualizerAudioProcessorEditor::updateVisibleMode()
     audioProcessor.waveform.setVisible(mode == 0);
     spectrumAnalyzer.setVisible(mode == 1);
     alchemyViz.setVisible(mode == 2);  // Step 8
+    galaxyViz.setVisible(mode == 3);  // Galaxy mode
 }
 
 void DvisualizerAudioProcessorEditor::updateColours()
@@ -160,10 +163,11 @@ void DvisualizerAudioProcessorEditor::updateColours()
 
     currentBgColour = bg;
 
-    // Push colours into all three visualisers so mode switches are instant
+    // Push colours into all visualisers so mode switches are instant
     audioProcessor.waveform.setColours(bg, primary);
     spectrumAnalyzer.setColours(bg, primary);
     alchemyViz.setColours(bg, primary);   // Step 8
+    galaxyViz.setColours(bg, primary);   // Galaxy mode
 
     // Tint ComboBox arrows with the current primary colour
     for (auto* cb : { &modeComboBox, &bgColorComboBox, &primaryColorComboBox })
@@ -208,8 +212,9 @@ void DvisualizerAudioProcessorEditor::resized()
     layoutControl(bgColorLabel, bgColorComboBox);
     layoutControl(primaryColorLabel, primaryColorComboBox);
 
-    // ── Visualization area — all three share the same rectangle ───────────
+    // ── Visualization area — all components share the same rectangle ──────
     audioProcessor.waveform.setBounds(bounds);
     spectrumAnalyzer.setBounds(bounds);
     alchemyViz.setBounds(bounds);   // Step 8
+    galaxyViz.setBounds(bounds);    // Galaxy mode
 }

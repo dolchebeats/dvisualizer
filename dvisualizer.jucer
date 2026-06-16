@@ -4,6 +4,8 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
   <MAINGROUP id="DZjyK2" name="dvisualizer">
     <GROUP id="{F1CCF86C-DAC5-D1F2-5FDD-959840101A1A}" name="Source">
+      <FILE id="z3isFl" name="VisualizerBase.h" compile="0" resource="0"
+            file="Source/VisualizerBase.h"/>
       <FILE id="JozECc" name="SpectrumAnalyzerComponent.cpp" compile="1"
             resource="0" file="Source/SpectrumAnalyzerComponent.cpp"/>
       <FILE id="VF1NOl" name="SpectrumAnalyzerComponent.h" compile="0" resource="0"
@@ -16,6 +18,9 @@
             file="Source/AlchemyComponent.h"/>
       <FILE id="pJMLRg" name="GalaxyComponent.cpp" compile="1" resource="0"
             file="Source/GalaxyComponent.cpp"/>
+      <FILE id="fBliFK" name="FFTProcessor.cpp" compile="1" resource="0"
+            file="Source/FFTProcessor.cpp"/>
+      <FILE id="wkkmqh" name="FFTProcessor.h" compile="0" resource="0" file="Source/FFTProcessor.h"/>
       <FILE id="tWldq4" name="GalaxyComponent.h" compile="0" resource="0"
             file="Source/GalaxyComponent.h"/>
       <FILE id="JEtzwR" name="PluginProcessor.h" compile="0" resource="0"

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "SpectrumAnalyzerComponent.h"
@@ -10,15 +10,18 @@
  * DvisualizerAudioProcessorEditor
  *
  * Owns:
- *   - Three ComboBox controls (mode, background color, primary color)
+ *   - Three ComboBox controls (mode, background colour, primary colour)
  *   - APVTS attachments that keep the controls in sync with the processor
  *   - A SpectrumAnalyzerComponent  (editor-lifetime)
- *   - An AlchemyComponent          (editor-lifetime)  ← Step 8
- *   - A GalaxyComponent            (editor-lifetime)  ← Galaxy mode
+ *   - An AlchemyComponent          (editor-lifetime)
+ *   - A GalaxyComponent            (editor-lifetime)
  *   - A reference to the processor's AudioVisualiserComponent (processor-lifetime)
  *
  * A juce::Timer at 30 Hz polls the three atomic parameter values and updates
  * the visible visualization component + colours whenever they change.
+ *
+ * All three visualizer components run their own internal 60 Hz timers
+ * (via VisualizerBase) even when hidden, so switching modes is instant.
  */
 class DvisualizerAudioProcessorEditor : public juce::AudioProcessorEditor,
     private juce::Timer
@@ -32,7 +35,7 @@ public:
 
 private:
     //==========================================================================
-    void timerCallback() override;
+    void timerCallback()    override;
     void updateVisibleMode();
     void updateColours();
 
@@ -56,17 +59,16 @@ private:
     std::unique_ptr<ComboAttachment> primaryColorAttachment;
 
     // ── Visualization components ───────────────────────────────────────────
-    // waveform       — owned by the processor (survives editor close)
-    // spectrumAnalyzer, alchemyViz, galaxyViz — owned by this editor
+    // waveform         — owned by the processor (survives editor close)
+    // All others       — owned by this editor
     SpectrumAnalyzerComponent spectrumAnalyzer;
-    AlchemyComponent          alchemyViz;       // Step 8
-    GalaxyComponent           galaxyViz;        // Galaxy mode
+    AlchemyComponent          alchemyViz;
+    GalaxyComponent           galaxyViz;
 
     // ── State tracking ────────────────────────────────────────────────────
     int lastKnownMode{ -1 };
     int lastKnownBg{ -1 };
     int lastKnownPrimary{ -1 };
-
     juce::Colour currentBgColour{ 0xff0d0d1a };
 
     //==========================================================================

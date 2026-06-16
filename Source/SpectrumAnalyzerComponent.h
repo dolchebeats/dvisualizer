@@ -1,68 +1,67 @@
 #pragma once
-#include <JuceHeader.h>
-#include "PluginProcessor.h"   // full include needed to access DvisualizerAudioProcessor::fftSize
-// (a forward declaration cannot see static constexpr members)
+#include "VisualizerBase.h"
+#include "FFTProcessor.h"
 
 //==============================================================================
 /**
  * SpectrumAnalyzerComponent
  *
- * A self-contained, log-frequency spectrum analyzer.
+ * A self-contained, log-frequency spectrum analyzer that derives from
+ * VisualizerBase (shared colour state + timer lifecycle + LCG) and delegates
+ * all FFT work to an FFTProcessor member.
+ *
+ * Visual output
+ * ─────────────
+ * A smooth Catmull-Rom cubic spline is drawn through the log-frequency
+ * magnitude bins with asymmetric attack/release smoothing applied by
+ * FFTProcessor.  A faint dB grid and frequency-marker grid are overlaid.
+ *
+ * Signal path per frame (timerCallback)
+ * ──────────────────────────────────────
+ *   FFTProcessor::pullAndProcess()
+ *     → FIFO read → Hann window → FFT → log-freq mapping → smoothing
+ *   → repaint() → paint() → buildCatmullRomPath() → strokePath()
  *
  * Threading model
  * ───────────────
- * - timerCallback()  runs on the message thread at 60 Hz
- * - paint()          runs on the message thread (triggered by repaint())
- * - Since both are on the same thread they are never concurrent — no locking
- *   is needed for fftData / scopeData / smoothedScopeData.
- * - The only cross-thread operation is reading from the processor's
- *   AbstractFifo, which is explicitly designed for single-producer /
- *   single-consumer lock-free access.
- *
- * Signal path per frame
- * ─────────────────────
- *   FIFO read → Hann window → FFT → dB conversion → log-freq mapping
- *   → exponential smoothing → paint()
+ * timerCallback() and paint() both run on the message thread (60 Hz via
+ * VisualizerBase).  All cross-thread I/O is handled inside FFTProcessor.
  */
-class SpectrumAnalyzerComponent : public juce::Component,
-    private juce::Timer
+class SpectrumAnalyzerComponent final : public VisualizerBase
 {
 public:
     explicit SpectrumAnalyzerComponent(DvisualizerAudioProcessor& processor);
-    ~SpectrumAnalyzerComponent() noexcept override;
+    ~SpectrumAnalyzerComponent() noexcept override = default;
 
-    /** Set display colours from the message thread. */
-    void setColours(juce::Colour background, juce::Colour primary);
+    // VisualizerBase override — no extra work needed here
+    void setColours(juce::Colour background, juce::Colour primary) override;
 
     void paint(juce::Graphics&) override;
-    void resized()                override {}
+    void resized()                override {}   // no off-screen canvas needed
 
 private:
-    void timerCallback()           override;
-    void drawNextFrameOfSpectrum();
+    //==========================================================================
+    void timerCallback() override;
+
+    // Builds a Catmull-Rom cubic spline through the magnitude data.
+    // Declared static because it has no side effects on this object.
+    static juce::Path buildCatmullRomPath(
+        const std::array<float, FFTProcessor::maxDisplaySize>& data,
+        int   displaySize,
+        float w,
+        float h,
+        int   step = 8);
 
     //==========================================================================
     DvisualizerAudioProcessor& processor;
 
-    // FFT engine and windowing — GUI thread only
-    juce::dsp::FFT                      forwardFFT;
-    juce::dsp::WindowingFunction<float> window;
-
-    // fftData must be 2 × fftSize for performFrequencyOnlyForwardTransform:
-    //   [0 .. fftSize-1]   = real input samples (then overwritten with magnitudes)
-    //   [fftSize .. 2N-1]  = imaginary part (zeroed before each transform)
-    std::array<float, DvisualizerAudioProcessor::fftSize * 2> fftData{};
-
-    // Display resolution: each entry maps to one horizontal display column
+    // FFTProcessor is configured for 512 display bins, fast attack / slow
+    // release — appropriate for a smooth line spectrum display.
     static constexpr int   scopeSize = 512;
-    static constexpr float mindB = -100.0f;
-    static constexpr float maxdB = 0.0f;
+    static constexpr float attackCoeff = 0.70f;
+    static constexpr float releaseCoeff = 0.92f;
 
-    std::array<float, scopeSize> scopeData{};  // raw, current frame
-    std::array<float, scopeSize> smoothedScopeData{};  // exponentially smoothed
-
-    juce::Colour bgColour{ 0xff0d0d1a };
-    juce::Colour primaryColour{ 0xff00d4ff };
+    FFTProcessor fftProc;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyzerComponent)
 };

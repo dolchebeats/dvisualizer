@@ -3,7 +3,8 @@
 
 //==============================================================================
 // Colour palettes
-// Index ordering MUST match the AudioParameterChoice StringArrays in the processor.
+// Index ordering MUST match the AudioParameterChoice StringArrays in the
+// processor.  If you add colours, update both places.
 //==============================================================================
 juce::Colour DvisualizerAudioProcessorEditor::getBgColour(int index)
 {
@@ -38,8 +39,8 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     : AudioProcessorEditor(&p),
     audioProcessor(p),
     spectrumAnalyzer(p),
-    alchemyViz(p),         // Step 8 — construct with processor reference
-    galaxyViz(p)           // Galaxy mode — construct with processor reference
+    alchemyViz(p),
+    galaxyViz(p)
 {
     setSize(640, 480);
 
@@ -62,8 +63,7 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
 
     // ── Title ──────────────────────────────────────────────────────────────
     titleLabel.setText("dvisualizer", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font(juce::FontOptions()
-        .withHeight(20.0f).withStyle("Bold")));
+    titleLabel.setFont(juce::Font(juce::FontOptions().withHeight(20.0f).withStyle("Bold")));
     titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     titleLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(titleLabel);
@@ -72,12 +72,13 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     styleLabel(modeLabel, "MODE");
     addAndMakeVisible(modeLabel);
 
-    // "Alchemy" is index 2, "Galaxy" is index 3 — must match createParameterLayout()
+    // Indices must match createParameterLayout(): 0=Waveform, 1=Spectrum,
+    // 2=Alchemy, 3=Galaxy
     modeComboBox.addItemList({ "Waveform", "Spectrum", "Alchemy", "Galaxy" }, 1);
     styleComboBox(modeComboBox);
     addAndMakeVisible(modeComboBox);
 
-    // ── Background color control ───────────────────────────────────────────
+    // ── Background colour control ──────────────────────────────────────────
     styleLabel(bgColorLabel, "BACKGROUND");
     addAndMakeVisible(bgColorLabel);
 
@@ -86,7 +87,7 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     styleComboBox(bgColorComboBox);
     addAndMakeVisible(bgColorComboBox);
 
-    // ── Primary color control ──────────────────────────────────────────────
+    // ── Primary colour control ─────────────────────────────────────────────
     styleLabel(primaryColorLabel, "PRIMARY COLOR");
     addAndMakeVisible(primaryColorLabel);
 
@@ -106,8 +107,8 @@ DvisualizerAudioProcessorEditor::DvisualizerAudioProcessorEditor(
     // ── Visualization components ───────────────────────────────────────────
     addAndMakeVisible(audioProcessor.waveform);
     addAndMakeVisible(spectrumAnalyzer);
-    addAndMakeVisible(alchemyViz);          // Step 8
-    addAndMakeVisible(galaxyViz);           // Galaxy mode
+    addAndMakeVisible(alchemyViz);
+    addAndMakeVisible(galaxyViz);
 
     // ── Parameter polling timer ────────────────────────────────────────────
     startTimerHz(30);
@@ -127,9 +128,9 @@ DvisualizerAudioProcessorEditor::~DvisualizerAudioProcessorEditor()
 //==============================================================================
 void DvisualizerAudioProcessorEditor::timerCallback()
 {
-    const int mode = static_cast<int>(*audioProcessor.vizModeParam);
-    const int bg = static_cast<int>(*audioProcessor.bgColorParam);
-    const int primary = static_cast<int>(*audioProcessor.primaryColorParam);
+    const int mode = static_cast<int> (*audioProcessor.vizModeParam);
+    const int bg = static_cast<int> (*audioProcessor.bgColorParam);
+    const int primary = static_cast<int> (*audioProcessor.primaryColorParam);
 
     if (mode != lastKnownMode ||
         bg != lastKnownBg ||
@@ -146,28 +147,28 @@ void DvisualizerAudioProcessorEditor::timerCallback()
 //==============================================================================
 void DvisualizerAudioProcessorEditor::updateVisibleMode()
 {
-    const int mode = static_cast<int>(*audioProcessor.vizModeParam);
+    const int mode = static_cast<int> (*audioProcessor.vizModeParam);
 
-    // Exactly one component is visible at a time; others are hidden but
-    // still receive their timer callbacks so they warm up instantly on switch.
+    // Exactly one component visible at a time; others remain running
+    // (timer ticks continue) so switching modes is instantaneous.
     audioProcessor.waveform.setVisible(mode == 0);
     spectrumAnalyzer.setVisible(mode == 1);
-    alchemyViz.setVisible(mode == 2);  // Step 8
-    galaxyViz.setVisible(mode == 3);  // Galaxy mode
+    alchemyViz.setVisible(mode == 2);
+    galaxyViz.setVisible(mode == 3);
 }
 
 void DvisualizerAudioProcessorEditor::updateColours()
 {
-    const juce::Colour bg = getBgColour(static_cast<int>(*audioProcessor.bgColorParam));
-    const juce::Colour primary = getPrimaryColour(static_cast<int>(*audioProcessor.primaryColorParam));
+    const juce::Colour bg = getBgColour(static_cast<int> (*audioProcessor.bgColorParam));
+    const juce::Colour primary = getPrimaryColour(static_cast<int> (*audioProcessor.primaryColorParam));
 
     currentBgColour = bg;
 
     // Push colours into all visualisers so mode switches are instant
     audioProcessor.waveform.setColours(bg, primary);
     spectrumAnalyzer.setColours(bg, primary);
-    alchemyViz.setColours(bg, primary);   // Step 8
-    galaxyViz.setColours(bg, primary);   // Galaxy mode
+    alchemyViz.setColours(bg, primary);
+    galaxyViz.setColours(bg, primary);
 
     // Tint ComboBox arrows with the current primary colour
     for (auto* cb : { &modeComboBox, &bgColorComboBox, &primaryColorComboBox })
@@ -183,7 +184,7 @@ void DvisualizerAudioProcessorEditor::paint(juce::Graphics& g)
 
     // Subtle separator line between the control strip and the visualization area
     g.setColour(juce::Colours::white.withAlpha(0.06f));
-    g.drawHorizontalLine(94, 10.0f, static_cast<float>(getWidth() - 10));
+    g.drawHorizontalLine(94, 10.0f, static_cast<float> (getWidth() - 10));
 }
 
 void DvisualizerAudioProcessorEditor::resized()
@@ -215,6 +216,6 @@ void DvisualizerAudioProcessorEditor::resized()
     // ── Visualization area — all components share the same rectangle ──────
     audioProcessor.waveform.setBounds(bounds);
     spectrumAnalyzer.setBounds(bounds);
-    alchemyViz.setBounds(bounds);   // Step 8
-    galaxyViz.setBounds(bounds);    // Galaxy mode
+    alchemyViz.setBounds(bounds);
+    galaxyViz.setBounds(bounds);
 }
